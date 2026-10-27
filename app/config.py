@@ -3,7 +3,7 @@ import re
 
 from dotenv import load_dotenv
 
-# Local runs read settings from .env; on Render they come from the dashboard.
+# Local runs read settings from .env; on Elastic Beanstalk they come from the environment properties.
 load_dotenv()
 
 _SCHEMA_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")

@@ -3,7 +3,9 @@
 A backend API for a simple transaction ledger. You can create accounts, post credit and debit transactions, read balances and paginated transaction history, and transfer money between accounts. Every balance change is atomic, idempotent by `reference_id`, and protected by database constraints.
 
 - **Stack:** Python 3.11+, FastAPI, SQLAlchemy 2, PostgreSQL (local Postgres or Supabase)
-- **API reference:** [docs/API.md](docs/API.md). Interactive docs at `http://localhost:8000/docs` once running.
+- **Live deployment (AWS Elastic Beanstalk, Docker):** http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com
+  - Swagger UI: http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com/docs · ReDoc: http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com/redoc · Health: http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com/health
+- **API reference:** [docs/API.md](docs/API.md). Locally, interactive docs are at `http://localhost:8000/docs`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -112,6 +114,42 @@ Routers stay thin: they validate input through Pydantic and call `services`, whi
 12. **No authentication or authorization.** Any client can act on any account. Adding auth was outside the assignment's scope.
 13. **Deleting accounts** is not supported. Foreign keys use `ON DELETE RESTRICT` to protect history.
 
-## Deploy (Render)
+## Deploy (AWS Elastic Beanstalk, Docker)
 
-`render.yaml` defines a Python web service. Set `DATABASE_URL` in the Render dashboard (for Supabase, the Session pooler URI, which is reachable over IPv4).
+The API runs on AWS Elastic Beanstalk with the **Docker** platform, in `ap-southeast-2` (Sydney):
+
+**http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com**
+
+Elastic Beanstalk builds the image from the repository's `Dockerfile`. No `Dockerrun.aws.json` is needed. The container listens on port `8000` (`EXPOSE 8000`), and the platform's nginx proxy forwards port 80 to it. The database is an external PostgreSQL (Supabase Session pooler), passed in through the `DATABASE_URL` environment property. Tables and the trigger are created when the container starts.
+
+Check it after a deploy:
+
+```bash
+curl http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com/health
+# {"status":"HEALTHY","current_time":"..."}
+```
+
+### Deploying a new version
+
+You need the [EB CLI](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/eb-cli3.html) and AWS credentials.
+
+```bash
+# One-time setup (already done for the current environment)
+eb init -p docker -r ap-southeast-2 transaction-ledger
+eb create transaction-ledger-env-1
+eb setenv DATABASE_URL='postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres'
+
+# Each release
+git commit -am "..."     # eb deploy uploads the latest git commit, not uncommitted changes
+eb deploy
+eb status                # Health should be Green
+eb logs                  # if the app fails to start
+```
+
+You can also set `DATABASE_URL` (and optionally `DB_SCHEMA`) in the console: Elastic Beanstalk → Environment → Configuration → Updates, monitoring and logging → Environment properties. Never commit it. Point the environment's health check at `/health`.
+
+Notes:
+
+- The environment serves plain **HTTP**. HTTPS needs a load balancer listener with an ACM certificate.
+- The API has no authentication (see Assumptions), so anyone with the URL can create accounts and move money. Treat the deployment as a demo.
+- Elastic Beanstalk is the only active deployment. `render.yaml` is left over from an earlier Render setup and is not used.

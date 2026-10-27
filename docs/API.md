@@ -1,6 +1,11 @@
 # Transaction Ledger API — Reference
 
-Base URL (local): `http://localhost:8000`. Interactive OpenAPI docs are served at `/docs` (Swagger UI) and `/redoc`.
+| Environment | Base URL |
+| --- | --- |
+| Production (AWS Elastic Beanstalk) | `http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com` |
+| Local | `http://localhost:8000` |
+
+Interactive OpenAPI docs are served at `/docs` (Swagger UI) and `/redoc` on both, e.g. [http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com/docs](http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com/docs).
 
 All request and response bodies are JSON. Money values (`amount`, `balance`) are returned as **strings with exactly 2 decimal places** (e.g. `"150.00"`) so no precision is lost. In requests they may be sent as a JSON number (`50`, `10.5`) or a numeric string (`"10.50"`). IDs are UUIDs. Timestamps are ISO 8601 in UTC.
 
@@ -230,22 +235,25 @@ Both legs appear in their accounts' transaction history. Errors: `404 ACCOUNT_NO
 
 ## Example session (curl)
 
-On Windows, use `curl.exe` and escape the inner quotes, or use the Swagger UI at `/docs`.
+Set `BASE` to the deployment or to your local server. On Windows, use `curl.exe` and escape the inner quotes, or use the Swagger UI at `/docs`.
 
 ```bash
-A=$(curl -s -X POST localhost:8000/v1/accounts -H 'Content-Type: application/json' -d '{"name":"Alice"}' | jq -r .id)
-B=$(curl -s -X POST localhost:8000/v1/accounts -H 'Content-Type: application/json' -d '{"name":"Bob"}'   | jq -r .id)
+BASE=http://transaction-ledger-env-1.eba-muenhrs3.ap-southeast-2.elasticbeanstalk.com
+# BASE=http://localhost:8000
 
-curl -s -X POST localhost:8000/v1/accounts/$A/transactions -H 'Content-Type: application/json' \
+A=$(curl -s -X POST $BASE/v1/accounts -H 'Content-Type: application/json' -d '{"name":"Alice"}' | jq -r .id)
+B=$(curl -s -X POST $BASE/v1/accounts -H 'Content-Type: application/json' -d '{"name":"Bob"}'   | jq -r .id)
+
+curl -s -X POST $BASE/v1/accounts/$A/transactions -H 'Content-Type: application/json' \
   -d '{"type":"credit","amount":100,"reference_id":"r1","description":"Deposit"}'
-curl -s -X POST localhost:8000/v1/accounts/$A/transactions -H 'Content-Type: application/json' \
+curl -s -X POST $BASE/v1/accounts/$A/transactions -H 'Content-Type: application/json' \
   -d '{"type":"debit","amount":150,"reference_id":"r2"}'        # 422 INSUFFICIENT_BALANCE
-curl -s -X POST localhost:8000/v1/accounts/$A/transactions -H 'Content-Type: application/json' \
+curl -s -X POST $BASE/v1/accounts/$A/transactions -H 'Content-Type: application/json' \
   -d '{"type":"credit","amount":100,"reference_id":"r1"}'       # 409 DUPLICATE_TRANSACTION
 
-curl -s -X POST localhost:8000/v1/transfers -H 'Content-Type: application/json' \
+curl -s -X POST $BASE/v1/transfers -H 'Content-Type: application/json' \
   -d "{\"source_account_id\":\"$A\",\"destination_account_id\":\"$B\",\"amount\":30,\"reference_id\":\"t1\"}"
 
-curl -s localhost:8000/v1/accounts/$A/balance                 # "70.00"
-curl -s "localhost:8000/v1/accounts/$A/transactions?type=debit&page=1&limit=10"
+curl -s $BASE/v1/accounts/$A/balance                 # "70.00"
+curl -s "$BASE/v1/accounts/$A/transactions?type=debit&page=1&limit=10"
 ```
