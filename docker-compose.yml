@@ -1,0 +1,16 @@
+# Local Postgres for development. Start with `docker compose up -d`, then use
+# DATABASE_URL=postgresql://ledger:ledger@localhost:5432/ledger
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ledger
+      POSTGRES_DB: ledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - ledger-data:/var/lib/postgresql/data
+
+volumes:
+  ledger-data:
